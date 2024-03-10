@@ -1,5 +1,5 @@
 import { createClient } from 'redis';
-import { promisify } from 'utils';
+import { promisify } from 'util';
 
 // class to define commands commonly used in redis
 class RedisClient {
