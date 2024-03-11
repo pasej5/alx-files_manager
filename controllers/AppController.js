@@ -3,6 +3,7 @@
  */
 const dbClient = require('../utils/db');
 const redisClient = require('../utils/redis');
+const sha1 = require('sha1');
 
 // get the status
 const getStatus = (req, res) => {
@@ -16,5 +17,6 @@ const getStats = async (req, res) => {
 
   res.status(200).send({ users, files });
 };
+
 
 module.exports = { getStats, getStatus };
