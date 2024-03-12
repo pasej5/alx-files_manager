@@ -40,6 +40,10 @@ class DBClient {
   userCollection() {
     return this.db.collection('users');
   }
+
+  fileCollection() {
+    return this.db.collection('files');
+  }
 }
 
 const dbClient = new DBClient();
