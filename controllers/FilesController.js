@@ -58,7 +58,7 @@ const postUpload = async (req, res) => {
       type,
       parentId: !parentId ? 0 : ObjectId(parentId),
       isPublic: isPublic || false,
-      userId : ObjectId(userId),
+      userId: ObjectId(userId),
     });
 
     res.status(201).send({
@@ -87,7 +87,7 @@ const postUpload = async (req, res) => {
     type,
     isPublic: isPublic || false,
     parentId: !parentId ? 0 : ObjectId(parentId),
-    userId:ObjectId(userId),
+    userId: ObjectId(userId),
     localPath: filePath,
   });
 
