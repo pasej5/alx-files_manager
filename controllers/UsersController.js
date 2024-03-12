@@ -2,7 +2,9 @@
  * define the logic to add a user to the database
  */
 const sha1 = require('sha1');
+const { ObjectId } = require('mongodb');
 const dbClient = require('../utils/db');
+const redisClient = require('../utils/redis');
 
 const postNew = async (req, res) => {
   const { email, password } = req.body;
@@ -34,4 +36,27 @@ const postNew = async (req, res) => {
   });
 };
 
-module.exports = { postNew };
+/*
+ * retrive a user base on the token
+ */
+
+const getMe = async (req, res) => {
+  const token = req.headers['x-token'];
+
+  if (!token) {
+    res.status(401).send({ error: 'Unauthorized' });
+    return;
+  }
+  const userId = await redisClient.get(`auth_${token}`);
+
+  if (userId) {
+    const user = await dbClient.userCollection().findOne({ _id: ObjectId(userId) });
+    if (user) {
+      res.send({ email: user.email, id: userId });
+      return;
+    }
+  }
+  res.status(401).send({ error: 'Unauthorized' });
+};
+
+module.exports = { postNew, getMe };
