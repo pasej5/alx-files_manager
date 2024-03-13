@@ -23,7 +23,7 @@ const postUpload = async (req, res) => {
   }
   // get data passed as the body
   const {
-    type, name, parentId, isPublic, data,
+    type, name, parentId = 0, isPublic = false, data,
   } = req.body;
 
   if (!name) {
@@ -42,54 +42,39 @@ const postUpload = async (req, res) => {
   }
 
   if (parentId) {
-    if (dbClient.nbFiles() === 0) {
+    const parentFile = await dbClient.fileCollection().findOne({ _id: ObjectId(parentId) });
+    if (!parentFile) {
       res.status(400).send({ error: 'Parent not found' });
       return;
     }
-    const parentFile = dbClient.fileCollection().findOne({ parentId });
+
     if (parentFile.type !== 'folder') {
       res.status(400).send({ error: 'Parent is not a folder' });
       return;
     }
   }
-  if (type === 'folder') {
-    const result = await dbClient.fileCollection().insertOne({
-      name,
-      type,
-      parentId: !parentId ? 0 : ObjectId(parentId),
-      isPublic: isPublic || false,
-      userId : ObjectId(userId),
-    });
-
-    res.status(201).send({
-      id: result.ops[0]._id,
-      name,
-      userId,
-      type,
-      parentId: result.ops[0].parentId,
-      isPublic: isPublic || false,
-    });
-    return;
-  }
-
-  // if not folder
-  const PATH = process.env.FOLDER_PATH || '/tmp/files_manager';
-  const filename = uuidv4();
-  await fs.mkdir(PATH, { recursive: true });
-  const filePath = path.join(PATH, filename);
-
-  // decode the data
-  const fileData = Buffer.from(data, 'base64').toString('utf8');
-  await fs.writeFile(filePath, fileData, 'utf8');
-
-  const reslt = await dbClient.fileCollection().insertOne({
+  const file = {
+    userId: ObjectId(userId),
     name,
     type,
-    isPublic: isPublic || false,
-    parentId: !parentId ? 0 : ObjectId(parentId),
-    userId:ObjectId(userId),
-    localPath: filePath,
-  });
+    parentId: parentId === 0 || parentId === '0' ? '0' : ObjectId(parentId),
+    isPublic,
+  };
+
+  if (type === 'file' || type === 'image') {
+    // if not folder
+    const PATH = process.env.FOLDER_PATH || '/tmp/files_manager';
+    const filename = uuidv4();
+    await fs.mkdir(PATH, { recursive: true });
+    const filePath = path.join(PATH, filename);
+
+    // decode the data
+    const fileData = Buffer.from(data, 'base64').toString('utf8');
+    await fs.writeFile(filePath, fileData, 'utf8');
+    file.localPath = filePath;
+  }
+
+  const reslt = await dbClient.fileCollection().insertOne(file);
 
   res.status(201);
   res.send({
@@ -97,8 +82,8 @@ const postUpload = async (req, res) => {
     id: reslt.ops[0]._id,
     userId,
     type,
-    isPublic: isPublic || false,
-    parentId: parentId || 0,
+    isPublic,
+    parentId: parentId === 0 || parentId === '0' ? 0 : parentId,
   });
 };
 
