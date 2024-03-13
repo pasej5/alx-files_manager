@@ -1,6 +1,6 @@
 /*
-*add uploads to the server
-*/
+ *add uploads to the server
+ */
 const mime = require('mime-types');
 const fs = require('fs').promises;
 const { ObjectId } = require('mongodb');
@@ -10,7 +10,7 @@ const redisClient = require('../utils/redis');
 const dbClient = require('../utils/db');
 
 const postUpload = async (req, res) => {
-// check the user exists using tken
+  // check the user exists using tken
   const token = req.headers['x-token'];
   if (!token) {
     res.status(401).send({ error: 'Unauthorized' });
@@ -23,9 +23,7 @@ const postUpload = async (req, res) => {
     return;
   }
   // get data passed as the body
-  const {
-    type, name, parentId = 0, isPublic = false, data,
-  } = req.body;
+  const { type, name, parentId = 0, isPublic = false, data } = req.body;
 
   if (!name) {
     res.status(400).send({ error: 'Missing name' });
@@ -43,7 +41,9 @@ const postUpload = async (req, res) => {
   }
 
   if (parentId) {
-    const parentFile = await dbClient.fileCollection().findOne({ _id: ObjectId(parentId) });
+    const parentFile = await dbClient
+      .fileCollection()
+      .findOne({ _id: ObjectId(parentId) });
     if (!parentFile) {
       res.status(400).send({ error: 'Parent not found' });
       return;
@@ -90,11 +90,11 @@ const postUpload = async (req, res) => {
 };
 
 /*
-* retrive a file based on the id and user
-*
-*/
+ * retrive a file based on the id and user
+ *
+ */
 const getShow = async (req, res) => {
-// find user using token
+  // find user using token
   const token = req.headers['x-token'];
   if (!token) {
     res.status(401).send({ error: 'Unauthorized' });
@@ -128,8 +128,8 @@ const getShow = async (req, res) => {
 };
 
 /*
-* retrieve all users file documents for a specific parentId and with pagination
-*/
+ * retrieve all users file documents for a specific parentId and with pagination
+ */
 const getIndex = async (req, res) => {
   const token = req.headers['x-token'];
   if (!token) {
@@ -145,7 +145,7 @@ const getIndex = async (req, res) => {
 
   // get the parameter passed and if a folder exists witha that id
   const { parentId = 0, page = 0 } = req.query;
-  if (+(parentId) !== 0) {
+  if (+parentId !== 0) {
     const folder = await dbClient.fileCollection().findOne({
       _id: ObjectId(parentId),
       type: 'folder',
@@ -162,11 +162,14 @@ const getIndex = async (req, res) => {
   const NumberOfDoc = 20;
 
   if (pageNo >= 0) {
-    const result = await dbClient.fileCollection().aggregate([
-      { $match: { parentId: +(parentId) === 0 ? 0 : ObjectId(parentId) } },
-      { $skip: pageNo * NumberOfDoc },
-      { $limit: NumberOfDoc },
-    ]).toArray();
+    const result = await dbClient
+      .fileCollection()
+      .aggregate([
+        { $match: { parentId: +parentId === 0 ? 0 : ObjectId(parentId) } },
+        { $skip: pageNo * NumberOfDoc },
+        { $limit: NumberOfDoc },
+      ])
+      .toArray();
 
     const editResult = result.map((value) => ({
       id: value._id,
@@ -251,8 +254,8 @@ const putUnpublish = async (req, res) => {
 };
 
 /*
-*  return the content of the file document based on the ID
-*/
+ *  return the content of the file document based on the ID
+ */
 
 const getFile = async (req, res) => {
   const token = req.headers['x-token'];
@@ -272,13 +275,13 @@ const getFile = async (req, res) => {
   const { id } = req.params;
   // check if a file exists with that id
   const file = await dbClient.fileCollection().findOne({ _id: ObjectId(id) });
-  console.log(file.userId)
+  console.log(file.userId);
   if (!file) {
     res.status(404).json({ error: 'File not found' });
     return;
   }
 
-  if (!file.isPublic && (file.userId.toString() !== userId.toString())) {
+  if (!file.isPublic && file.userId.toString() !== userId.toString()) {
     res.status(404).json({ error: 'Not found' });
     return;
   }
