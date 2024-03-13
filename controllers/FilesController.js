@@ -8,6 +8,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const redisClient = require('../utils/redis');
 const dbClient = require('../utils/db');
+const { fileQueue } = require('../utils/queue');
 
 const postUpload = async (req, res) => {
   // check the user exists using tken
@@ -74,7 +75,15 @@ const postUpload = async (req, res) => {
     const fileData = Buffer.from(data, 'base64').toString('utf8');
     await fs.writeFile(filePath, fileData, 'utf8');
     file.localPath = filePath;
-  }
+
+    // Add a job to the queue for generating thumbnails
+    // Add a job to the queue for generating thumbnails
+if (type === 'image') {
+  fileQueue.add({
+    userId: ObjectId(userId),
+    fileId: reslt.ops[0]._id,
+  });
+}
 
   const reslt = await dbClient.fileCollection().insertOne(file);
 
@@ -297,6 +306,14 @@ const getFile = async (req, res) => {
     res.status(404).json({ error: 'Not found' });
     return;
   }
+  const { size } = req.query;
+  if (file.type === 'image' && ['100', '250', '500'].includes(size)) {
+    const imagePath = `${file.localPath}_${size}`;
+    const itExists = await fs.access(imagePath);
+    if (!itExists) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
 
   // get the mine type
   const mimeType = mime.lookup(file.name);
