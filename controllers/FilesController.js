@@ -195,24 +195,22 @@ const putPublish = async (req, res) => {
   }
   // check if a document is linked to the user and id passed
   const { id } = req.params;
-  const file = await dbClient.fileCollection().findOne({
-    userId: ObjectId(userId),
-    _id: ObjectId(id),
-  });
-  if (!file) {
+  const file = await dbClient.fileCollection().findOneAndUpdate(
+    { userId: ObjectId(userId), _id: ObjectId(id) },
+    { $set: { isPublic: true } },
+  );
+  if (!file.value) {
     res.status(404).send({ error: 'Not found' });
     return;
   }
 
-  file.isPublic = true;
-
   res.send({
     id,
     userId,
-    name: file.name,
-    type: file.type,
-    isPublic: file.isPublic,
-    parentId: file.parentId,
+    name: file.value.name,
+    type: file.value.type,
+    isPublic: true,
+    parentId: file.value.parentId,
   });
 };
 
@@ -229,24 +227,23 @@ const putUnpublish = async (req, res) => {
     return;
   }
   const { id } = req.params;
-  const file = await dbClient.fileCollection().findOne({
-    userId: ObjectId(userId),
-    _id: ObjectId(id),
-  });
+  const file = await dbClient.fileCollection().findOneAndUpdate(
+    { userId: ObjectId(userId), _id: ObjectId(id) },
+    { $set: { isPublic: false } },
+  );
 
-  if (!file) {
+  if (!file.value) {
     res.status(404).send({ error: 'Not found' });
     return;
   }
 
-  file.isPublic = false;
   res.send({
     id,
     userId,
-    name: file.name,
-    type: file.type,
-    isPublic: file.isPublic,
-    parentId: file.parentId,
+    name: file.value.name,
+    type: file.value.type,
+    isPublic: false,
+    parentId: file.value.parentId,
   });
 };
 
@@ -256,29 +253,19 @@ const putUnpublish = async (req, res) => {
 
 const getFile = async (req, res) => {
   const token = req.headers['x-token'];
-  console.log(token);
-  if (!token) {
-    res.status(401).send({ error: 'Unauthorized' });
-    return;
-  }
 
   const userId = await redisClient.get(`auth_${token}`);
-  console.log('user', userId);
-  if (!userId) {
-    res.status(401).send({ error: 'Unauthorized' });
-    return;
-  }
 
   const { id } = req.params;
   // check if a file exists with that id
   const file = await dbClient.fileCollection().findOne({ _id: ObjectId(id) });
-  console.log(file.userId)
+
   if (!file) {
-    res.status(404).json({ error: 'File not found' });
+    res.status(404).json({ error: 'Not found' });
     return;
   }
 
-  if (!file.isPublic && (file.userId.toString() !== userId.toString())) {
+  if (!file.isPublic && (file.userId.toString() !== userId)) {
     res.status(404).json({ error: 'Not found' });
     return;
   }
@@ -289,7 +276,16 @@ const getFile = async (req, res) => {
   }
 
   // check if it exists locally
-  const itExists = await fs.access(file.localPath);
+
+  let itExists;
+  try {
+    await fs.access(file.localPath);
+    itExists = true;
+  } catch (error) {
+    itExists = false; // File is not accessible
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
   if (!itExists) {
     res.status(404).json({ error: 'Not found' });
     return;
@@ -299,8 +295,7 @@ const getFile = async (req, res) => {
   const mimeType = mime.lookup(file.name);
 
   // read the content of the file
-  const content = fs.readFile(file.localPath);
-
+  const content = await fs.readFile(file.localPath);
   res.setHeader('Content-Type', mimeType);
   res.send(content);
 };
