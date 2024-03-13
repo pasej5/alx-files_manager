@@ -15,6 +15,8 @@ app.post('/users', UsersController.postNew);
 app.get('/connect', AuthController.getConnect);
 app.get('/disconnect', AuthController.getDisconnect);
 app.get('/users/me', UsersController.getMe);
-app.post('/files', FilesController.postUpload)
+app.post('/files', FilesController.postUpload);
+//app.get('/files/:id', FilesController.getShow);
+//app.get('/files', FilesController.getIndex);
 
 module.exports = app;
