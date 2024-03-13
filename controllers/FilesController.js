@@ -1,6 +1,7 @@
 /*
 *add uploads to the server
 */
+const mime = require('mime-types');
 const fs = require('fs').promises;
 const { ObjectId } = require('mongodb');
 const path = require('path');
@@ -149,6 +150,7 @@ const getIndex = async (req, res) => {
       _id: ObjectId(parentId),
       type: 'folder',
     });
+
     if (!folder) {
       res.send([]);
       return;
@@ -178,4 +180,135 @@ const getIndex = async (req, res) => {
     res.send(editResult);
   }
 };
-module.exports = { postUpload, getShow, getIndex };
+
+const putPublish = async (req, res) => {
+  const token = req.headers['x-token'];
+  if (!token) {
+    res.status(401).send({ error: 'Unauthorized' });
+    return;
+  }
+
+  const userId = await redisClient.get(`auth_${token}`);
+  if (!userId) {
+    res.status(401).send({ error: 'Unauthorized' });
+    return;
+  }
+  // check if a document is linked to the user and id passed
+  const { id } = req.params;
+  const file = await dbClient.fileCollection().findOne({
+    userId: ObjectId(userId),
+    _id: ObjectId(id),
+  });
+  if (!file) {
+    res.status(404).send({ error: 'Not found' });
+    return;
+  }
+
+  file.isPublic = true;
+
+  res.send({
+    id,
+    userId,
+    name: file.name,
+    type: file.type,
+    isPublic: file.isPublic,
+    parentId: file.parentId,
+  });
+};
+
+const putUnpublish = async (req, res) => {
+  const token = req.headers['x-token'];
+  if (!token) {
+    res.status(401).send({ error: 'Unauthorized' });
+    return;
+  }
+
+  const userId = await redisClient.get(`auth_${token}`);
+  if (!userId) {
+    res.status(401).send({ error: 'Unauthorized' });
+    return;
+  }
+  const { id } = req.params;
+  const file = await dbClient.fileCollection().findOne({
+    userId: ObjectId(userId),
+    _id: ObjectId(id),
+  });
+
+  if (!file) {
+    res.status(404).send({ error: 'Not found' });
+    return;
+  }
+
+  file.isPublic = false;
+  res.send({
+    id,
+    userId,
+    name: file.name,
+    type: file.type,
+    isPublic: file.isPublic,
+    parentId: file.parentId,
+  });
+};
+
+/*
+*  return the content of the file document based on the ID
+*/
+
+const getFile = async (req, res) => {
+  const token = req.headers['x-token'];
+  console.log(token);
+  if (!token) {
+    res.status(401).send({ error: 'Unauthorized' });
+    return;
+  }
+
+  const userId = await redisClient.get(`auth_${token}`);
+  console.log('user', userId);
+  if (!userId) {
+    res.status(401).send({ error: 'Unauthorized' });
+    return;
+  }
+
+  const { id } = req.params;
+  // check if a file exists with that id
+  const file = await dbClient.fileCollection().findOne({ _id: ObjectId(id) });
+  console.log(file.userId)
+  if (!file) {
+    res.status(404).json({ error: 'File not found' });
+    return;
+  }
+
+  if (!file.isPublic && (file.userId.toString() !== userId.toString())) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+
+  if (file.type === 'folder') {
+    res.status(400).json({ error: "A folder doesn't have content" });
+    return;
+  }
+
+  // check if it exists locally
+  const itExists = await fs.access(file.localPath);
+  if (!itExists) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+
+  // get the mine type
+  const mimeType = mime.lookup(file.name);
+
+  // read the content of the file
+  const content = fs.readFile(file.localPath);
+
+  res.setHeader('Content-Type', mimeType);
+  res.send(content);
+};
+module.exports = {
+  postUpload,
+  getShow,
+  getIndex,
+  putPublish,
+  putUnpublish,
+  getFile,
+};
