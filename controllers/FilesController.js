@@ -88,4 +88,93 @@ const postUpload = async (req, res) => {
   });
 };
 
-module.exports = { postUpload };
+/*
+* retrive a file based on the id and user
+*
+*/
+const getShow = async (req, res) => {
+// find user using token
+  const token = req.headers['x-token'];
+  if (!token) {
+    res.status(401).send({ error: 'Unauthorized' });
+    return;
+  }
+
+  const userId = await redisClient.get(`auth_${token}`);
+  if (!userId) {
+    res.status(401).send({ error: 'Unauthorized' });
+    return;
+  }
+  const { id } = req.params;
+  // check if user is associated with the a file
+  console.log(id);
+  const file = await dbClient.fileCollection().findOne({
+    userId: ObjectId(userId),
+    _id: ObjectId(id),
+  });
+  if (!file) {
+    res.status(404).send({ error: 'Not found' });
+    return;
+  }
+
+  res.send({
+    id,
+    userId,
+    name: file.name,
+    type: file.type,
+    isPublic: file.isPublic,
+    parentId: file.parentId,
+  });
+};
+
+/*
+* retrieve all users file documents for a specific parentId and with pagination
+*/
+const getIndex = async (req, res) => {
+  const token = req.headers['x-token'];
+  if (!token) {
+    res.status(401).send({ error: 'Unauthorized' });
+    return;
+  }
+
+  const userId = await redisClient.get(`auth_${token}`);
+  if (!userId) {
+    res.status(401).send({ error: 'Unauthorized' });
+    return;
+  }
+
+  // get the parameter passed and if a folder exists witha that id
+  const { parentId = 0, page = 0 } = req.query;
+  if (+(parentId) !== 0) {
+    const folder = await dbClient.fileCollection().findOne({ _id: ObjectId(parentId), type: 'folder' });
+    console.log(folder);
+    if (!folder) {
+      res.send([]);
+      return;
+    }
+  }
+
+  // get data with pagination
+  const pageNo = Number(page);
+  const NumberOfDoc = 20;
+
+  if (pageNo >= 0) {
+    const result = await dbClient.fileCollection().aggregate([
+      { $match: { parentId: +(parentId) === 0 ? 0 : ObjectId(parentId) } },
+      { $skip: pageNo * NumberOfDoc },
+      { $limit: NumberOfDoc },
+    ]).toArray();
+
+    const editResult = result.map((value) => ({
+      id: value._id,
+      userId: value.userId,
+      name: value.name,
+      type: value.type,
+      isPublic: value.isPublic,
+      parentId: value.parentId,
+    }));
+
+    res.send(editResult);
+  }
+};
+module.exports = { postUpload, getShow, getIndex };
