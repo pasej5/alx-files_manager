@@ -107,7 +107,6 @@ const getShow = async (req, res) => {
   }
   const { id } = req.params;
   // check if user is associated with the a file
-  console.log(id);
   const file = await dbClient.fileCollection().findOne({
     userId: ObjectId(userId),
     _id: ObjectId(id),
@@ -146,8 +145,10 @@ const getIndex = async (req, res) => {
   // get the parameter passed and if a folder exists witha that id
   const { parentId = 0, page = 0 } = req.query;
   if (+(parentId) !== 0) {
-    const folder = await dbClient.fileCollection().findOne({ _id: ObjectId(parentId), type: 'folder' });
-    console.log(folder);
+    const folder = await dbClient.fileCollection().findOne({
+      _id: ObjectId(parentId),
+      type: 'folder',
+    });
     if (!folder) {
       res.send([]);
       return;
