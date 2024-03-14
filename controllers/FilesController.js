@@ -277,19 +277,14 @@ const getFile = async (req, res) => {
 
   // check if it exists locally
 
-  let itExists;
   try {
     await fs.access(file.localPath);
-    itExists = true;
   } catch (error) {
-    itExists = false; // File is not accessible
+    // File is not accessible
     res.status(404).json({ error: 'Not found' });
     return;
   }
-  if (!itExists) {
-    res.status(404).json({ error: 'Not found' });
-    return;
-  }
+  
 
   // get the mine type
   const mimeType = mime.lookup(file.name);
